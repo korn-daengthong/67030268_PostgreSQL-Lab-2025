@@ -712,6 +712,9 @@ docker volume inspect postgres-data
 ```
 ใส่ Screenshot ของ resource usage และ volume information ที่นี่
 ```
+![alt text](image61.png)
+![alt text](image62.png)
+![alt text](image63.png)
 
 ### Checkpoint 2: Database Performance และ Configuration
 ```sql
@@ -719,17 +722,7 @@ docker volume inspect postgres-data
 docker exec -it postgres-lab psql -U postgres
 
 -- ตรวจสอบ Database Statistics
-SELECT 
-    datname,
-    numbackends,
-    xact_commit,
-    xact_rollback,
-    blks_read,
-    blks_hit,
-    temp_files,
-    temp_bytes
-FROM pg_stat_database 
-WHERE datname IN ('postgres', 'testdb', 'lab_db');
+
 
 -- ตรวจสอบ Memory Usage
 SELECT 
@@ -760,8 +753,11 @@ WHERE state = 'active';
 ```
 ใส่ Screenshot ของ:
 1. Database statistics
+![alt text](image64.png)
 2. Memory configuration
+![alt text](image65.png)
 3. Active connections
+![alt text](image66.png)
 ```
 
 ## การแก้ไขปัญหาเบื้องต้น
@@ -818,6 +814,13 @@ docker volume create postgres-data
 
 ```bash
 # พื้นที่สำหรับคำตอบ - เขียน command ที่ใช้
+docker run --name multi-postgres `
+  -e POSTGRES_PASSWORD=multipass123 `
+  -p 5434:5432 `
+  --memory="1.5g" `
+  --cpus="1.5" `
+  -v multi-postgres-data:/var/lib/postgresql/data `
+  -d postgres
 
 ```
 
@@ -825,8 +828,11 @@ docker volume create postgres-data
 ```
 ใส่ Screenshot ของ:
 1. คำสั่งที่ใช้สร้าง container
+![alt text](image67.png)
 2. docker ps แสดง container ใหม่
+![alt text](image68.png)
 3. docker stats แสดงการใช้ resources
+![alt text](image69.png)
 ```
 
 ### แบบฝึกหัด 2: User Management และ Security
@@ -844,15 +850,34 @@ docker volume create postgres-data
 
 ```sql
 -- พื้นที่สำหรับคำตอบ - เขียน SQL commands ที่ใช้
+-- 1. สร้าง Role Groups
+CREATE ROLE app_developers;
+CREATE ROLE data_analysts;
+CREATE ROLE db_admins;
+-- 2. สร้าง Users และกำหนดรหัสผ่าน + ผูกกับ Role Groups
+CREATE USER dev_user WITH PASSWORD 'dev123';
+GRANT app_developers TO dev_user;
 
+CREATE USER analyst_user WITH PASSWORD 'analyst123';
+GRANT data_analysts TO analyst_user;
+
+CREATE USER admin_user WITH PASSWORD 'admin123';
+GRANT db_admins TO admin_user;
 ```
 
 **ผลการทำแบบฝึกหัด 2:**
 ```
 ใส่ Screenshot ของ:
 1. การสร้าง roles และ users
+![alt text](image70.png)
+![alt text](image71.png)
+![alt text](image72.png)
 2. ผลการรัน \du แสดงผู้ใช้ทั้งหมด
+![alt text](image73.png)
 3. ผลการทดสอบเชื่อมต่อด้วย user ต่างๆ
+![alt text](image74.png)
+![alt text](image75.png)
+![alt text](image76.png)
 ```
 
 ### แบบฝึกหัด 3: Schema Design และ Complex Queries
@@ -998,6 +1023,185 @@ INSERT INTO ecommerce.order_items (order_id, product_id, quantity, price) VALUES
 
 ```sql
 -- พื้นที่สำหรับคำตอบ - เขียน SQL commands ทั้งหมด
+CREATE DATABASE shopdb;
+\c shopdb postgres
+
+CREATE SCHEMA ecommerce;
+CREATE SCHEMA analytics;
+CREATE SCHEMA audit;
+
+-- ตารางหมวดหมู่
+CREATE TABLE ecommerce.categories (
+    category_id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT
+);
+
+-- ตารางสินค้า
+CREATE TABLE ecommerce.products (
+    product_id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT,
+    price NUMERIC(10,2) NOT NULL,
+    category_id INT REFERENCES ecommerce.categories(category_id),
+    stock INT NOT NULL
+);
+
+-- ตารางลูกค้า
+CREATE TABLE ecommerce.customers (
+    customer_id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    phone TEXT,
+    address TEXT
+);
+
+-- ตารางออเดอร์
+CREATE TABLE ecommerce.orders (
+    order_id SERIAL PRIMARY KEY,
+    customer_id INT REFERENCES ecommerce.customers(customer_id),
+    order_date TIMESTAMP NOT NULL,
+    status TEXT NOT NULL,
+    total NUMERIC(10,2) NOT NULL
+);
+
+-- ตารางรายละเอียดสินค้าในออเดอร์
+CREATE TABLE ecommerce.order_items (
+    order_item_id SERIAL PRIMARY KEY,
+    order_id INT REFERENCES ecommerce.orders(order_id),
+    product_id INT REFERENCES ecommerce.products(product_id),
+    quantity INT NOT NULL,
+    price NUMERIC(10,2) NOT NULL
+);
+-- categories
+INSERT INTO ecommerce.categories (name, description) VALUES
+  ('Electronics','Electronic devices and gadgets'),
+  ('Clothing','Apparel and fashion items'),
+  ('Books','Books and educational materials'),
+  ('Home & Garden','Home improvement and garden supplies'),
+  ('Sports','Sports equipment and accessories');
+
+-- products
+INSERT INTO ecommerce.products (name, description, price, category_id, stock) VALUES
+  ('iPhone 15','Latest Apple smartphone', 999.99, 1, 50),
+  ('Samsung Galaxy S24','Android flagship phone', 899.99, 1, 45),
+  ('MacBook Air','Apple laptop computer', 1299.99, 1, 30),
+  ('Wireless Headphones','Bluetooth noise-canceling headphones', 199.99, 1, 100),
+  ('Gaming Mouse','High-precision gaming mouse', 79.99, 1, 75),
+
+  ('T-Shirt','Cotton casual t-shirt', 19.99, 2, 200),
+  ('Jeans','Denim blue jeans', 59.99, 2, 150),
+  ('Sneakers','Comfortable running sneakers', 129.99, 2, 80),
+  ('Jacket','Winter waterproof jacket', 89.99, 2, 60),
+  ('Hat','Baseball cap', 24.99, 2, 120),
+
+  ('Programming Book','Learn Python programming', 39.99, 3, 40),
+  ('Novel','Best-selling fiction novel', 14.99, 3, 90),
+  ('Textbook','University mathematics textbook', 79.99, 3, 25),
+
+  ('Garden Tools Set','Complete gardening tool kit', 49.99, 4, 35),
+  ('Plant Pot','Ceramic decorative pot', 15.99, 4, 80),
+
+  ('Tennis Racket','Professional tennis racket', 149.99, 5, 20),
+  ('Football','Official size football', 29.99, 5, 55);
+
+-- customers
+INSERT INTO ecommerce.customers (name, email, phone, address) VALUES
+  ('John Smith','john.smith@email.com','555-0101','123 Main St, City A'),
+  ('Sarah Johnson','sarah.j@email.com','555-0102','456 Oak Ave, City B'),
+  ('Mike Brown','mike.brown@email.com','555-0103','789 Pine Rd, City C'),
+  ('Emily Davis','emily.d@email.com','555-0104','321 Elm St, City A'),
+  ('David Wilson','david.w@email.com','555-0105','654 Maple Dr, City B'),
+  ('Lisa Anderson','lisa.a@email.com','555-0106','987 Cedar Ln, City C'),
+  ('Tom Miller','tom.miller@email.com','555-0107','147 Birch St, City A'),
+  ('Amy Taylor','amy.t@email.com','258 Ash Ave, City B');
+
+-- orders  (หมายเหตุ: totals บางรายการไม่สอดคล้องกับ order_items)
+INSERT INTO ecommerce.orders (customer_id, order_date, status, total) VALUES
+  (1,'2024-01-15 10:30:00','completed',1199.98),
+  (2,'2024-01-16 14:20:00','completed',219.98),
+  (3,'2024-01-17 09:15:00','completed',159.97),
+  (1,'2024-01-18 11:45:00','completed',79.99),
+  (4,'2024-01-19 16:30:00','completed',89.98),
+  (5,'2024-01-20 13:25:00','completed',1329.98),
+  (2,'2024-01-21 15:10:00','completed',149.99),
+  (6,'2024-01-22 12:40:00','completed',294.97),
+  (3,'2024-01-23 08:50:00','completed',199.99),
+  (7,'2024-01-24 17:20:00','completed',169.98),
+  (1,'2024-01-25 10:15:00','completed',39.99),
+  (8,'2024-01-26 14:35:00','completed',599.97),
+  (4,'2024-01-27 11:20:00','processing',179.98),
+  (5,'2024-01-28 09:45:00','shipped',44.98),
+  (6,'2024-01-29 16:55:00','completed',129.99);
+
+-- order_items
+INSERT INTO ecommerce.order_items (order_id, product_id, quantity, price) VALUES
+  (1, 1, 1, 999.99), (1, 4, 1, 199.99),
+  (2, 4, 1, 199.99), (2, 6, 1, 19.99),
+  (3, 7, 1, 59.99),  (3, 5, 1, 79.99), (3, 6, 1, 19.99),
+  (4, 5, 1, 79.99),
+  (5, 9, 1, 89.99),
+  (6, 3, 1, 1299.99), (6, 12, 2, 14.99),
+  (7, 16, 1, 149.99),
+  (8, 8, 2, 129.99),  (8, 10, 1, 24.99), (8, 11, 1, 39.99),
+  (9, 4, 1, 199.99),
+  (10, 2, 1, 899.99), (10, 6, 3, 19.99), (10, 14, 1, 49.99),
+  (11, 11, 1, 39.99),
+  (12, 1, 1, 999.99), -- หมายเหตุ: คอมเมนต์พูดถึง 599.97 แต่ราคาใส่ 999.99
+  (13, 17, 6, 29.99),
+  (14, 15, 2, 15.99), (14, 12, 1, 14.99),
+  (15, 8, 1, 129.99);
+
+SELECT COUNT(*) FROM ecommerce.categories;   
+SELECT COUNT(*) FROM ecommerce.products;    
+SELECT COUNT(*) FROM ecommerce.customers;    
+SELECT COUNT(*) FROM ecommerce.orders;       
+SELECT COUNT(*) FROM ecommerce.order_items;  
+
+SELECT
+  p.product_id,
+  p.name,
+  SUM(oi.quantity) AS total_qty
+FROM ecommerce.order_items oi
+JOIN ecommerce.products p ON p.product_id = oi.product_id
+GROUP BY p.product_id, p.name
+ORDER BY total_qty DESC, p.name
+LIMIT 5;
+
+SELECT
+  c.category_id,
+  c.name AS category,
+  SUM(oi.quantity * oi.price) AS total_sales
+FROM ecommerce.order_items oi
+JOIN ecommerce.products p  ON p.product_id = oi.product_id
+JOIN ecommerce.categories c ON c.category_id = p.category_id
+GROUP BY c.category_id, c.name
+ORDER BY total_sales DESC, c.name;
+
+SELECT
+  cu.customer_id,
+  cu.name AS customer,
+  SUM(oi.quantity) AS total_items
+FROM ecommerce.order_items oi
+JOIN ecommerce.orders o   ON o.order_id = oi.order_id
+JOIN ecommerce.customers cu ON cu.customer_id = o.customer_id
+GROUP BY cu.customer_id, cu.name
+ORDER BY total_items DESC, cu.name
+LIMIT 1;
+
+SELECT
+  cu.customer_id,
+  cu.name AS customer,
+  SUM(oi.quantity * oi.price) AS total_spent
+FROM ecommerce.order_items oi
+JOIN ecommerce.orders o   ON o.order_id = oi.order_id
+JOIN ecommerce.customers cu ON cu.customer_id = o.customer_id
+GROUP BY cu.customer_id, cu.name
+ORDER BY total_spent DESC, cu.name
+LIMIT 1;
+
+
+
 
 ```
 
@@ -1005,9 +1209,61 @@ INSERT INTO ecommerce.order_items (order_id, product_id, quantity, price) VALUES
 ```
 ใส่ Screenshot ของ:
 1. โครงสร้าง schemas และ tables (\dn+, \dt ecommerce.*)
+![alt text](image80.png)
+![alt text](image77.png)
+![alt text](image78.png)
+![alt text](image79.png)
 2. ข้อมูลตัวอย่างในตารางต่างๆ
+![alt text](image81.png)
+![alt text](image82.png)
 3. ผลการรัน queries ที่สร้าง
+![alt text](image83.png)
+![alt text](image84.png)
+![alt text](image85.png)
 4. การวิเคราะห์ข้อมูลที่ได้
+สินค้าขายดีสุด (นับจำนวนชิ้น)
+
+Football = 6 ชิ้น
+
+T-Shirt = 5 ชิ้น
+
+Novel = 3 ชิ้น
+
+Sneakers = 3 ชิ้น
+
+Wireless Headphones = 3 ชิ้น
+
+หมายเหตุ: Football มาจากออเดอร์เดียวแบบจำนวนมาก (6 ลูก) → เป็น “bulk order”
+
+สินค้าที่ทำรายได้สูงสุด (หน่วยเดียวกับราคาที่ป้อน เช่น USD)
+
+iPhone 15 = 1,999.98
+
+MacBook Air = 1,299.99
+
+Samsung Galaxy S24 = 899.99
+
+Wireless Headphones = 599.97
+
+Sneakers = 389.97
+
+ยอดขายตามหมวดหมู่ (สัดส่วนจากยอดรวม ≈ 6,161.65)
+
+Electronics ≈ 4,959.91 (~80.5%) — นำโด่ง
+
+Clothing ≈ 664.89 (~10.8%)
+
+Sports ≈ 329.93 (~5.4%)
+
+Books ≈ 124.95 (~2.0%)
+
+Home & Garden ≈ 81.97 (~1.3%)
+
+ลูกค้าที่ซื้อ “มากที่สุด”
+
+ตามจำนวนชิ้น: Emily Davis = 7 ชิ้น
+
+ตามมูลค่ารวม: David Wilson ≈ 1,376.94 (รองลงมา John Smith ≈ 1,319.96)
 ```
 
 
@@ -1025,7 +1281,29 @@ INSERT INTO ecommerce.order_items (order_id, product_id, quantity, price) VALUES
 ```
 เขียนคำตอบที่นี่
 ```
+1. Named Volume vs Bind Mount (กับ PostgreSQL)
+Named volume: Docker จัดการที่อยู่จริงเอง (`/var/lib/docker/volumes/...`) พกพาง่าย ไม่ผูกกับ path เครื่อง host เหมาะเก็บ data directory** ของ Postgres (ทนทาน/เสี่ยงน้อยเรื่องสิทธิ์ไฟล์)
+Bind mount**: ผูกตรงกับโฟลเดอร์บน host เหมาะกับไฟล์ที่อยากแก้บนเครื่องสะดวก เช่น `postgresql.conf`, สคริปต์ SQL, สำรวจไฟลง่าย แต่เสี่ยงเรื่องสิทธิ์/เจ้าของไฟล์ (UID/GID) และผูกกับ path นั้นตลอด
+ด้านประสิทธิภาพ: บน Windows/Mac bind mount อาจช้ากว่า; production มักใช้ **named volume** สำหรับ `PGDATA` แล้วค่อย bind mount เฉพาะไฟล์ config ที่ต้องแก้
 
+2. เหตุผลที่ตั้ง `shared_buffers` ≈ 25% ของ RAM
+เป็น buffer cache ภายใน Postgres ช่วยลด disk I/O โดยเก็บ page ที่ใช้งานบ่อย
+ตั้งต่ำไป = I/O ถี่ ช้า; ตั้งสูงไป = แย่ง RAM จาก OS cache/โปรเซสอื่น เกิดผลตอบแทนลดลง
+ค่า 25% เป็น baseline ที่ดี บนเครื่อง/คอนเทนเนอร์ที่ทุ่มให้ Postgres (ใน Docker ให้คิดจาก memory limit ไม่ใช่ RAM เครื่อง)
+ปรับจูนต่อด้วยสถิติจริง (เช่น hit ratio, `pg_stat_io`) ไม่ยึด 25% ตายตัว
+
+3. Schema ช่วยจัดการฐานข้อมูลใหญ่ยังไง
+ทำหน้าที่เป็น namespace แยกตาราง/วิว/ฟังก์ชัน ป้องกันชื่อชนกัน
+แยกสิทธิ์ ง่าย (GRANT ราย schema) เช่น `ecommerce` สำหรับแอป, `analytics` สำหรับนักวิเคราะห์, `audit` สำหรับบันทึกตรวจสอบ
+สนับสนุน multi-tenant / แยก domain** และทำงานเป็นสโคปสำหรับ backup/restore รายส่วน
+จัดการเวิร์กโฟลว์ได้ดี (dev/staging/prod schema, data mart แยกจาก OLTP) และควบคุมด้วย `search_path`
+
+4. ประโยชน์ของ Docker สำหรับ Database Development
+Reproducible: เวอร์ชัน/คอนฟิกเหมือนกันทุกเครื่อง (`docker run -c ...`) ลด “วิ่งเฉพาะเครื่องผม”
+Isolation: รันหลายเวอร์ชัน/หลายอินสแตนซ์คู่กันได้ ไม่ชนกับระบบหลัก
+Spin-up/tear-down เร็ว: สร้าง/ลบทดลองง่าย ใช้ volume เก็บข้อมูลจริง
+Resource control: จำกัด CPU/RAM ชัดเจน ทดสอบพฤติกรรมภายใต้ข้อจำกัดได้
+Dev/CI พร้อม: ใช้ Compose รวมแอป+DB, seed ข้อมูลด้วย bind mount, เทสต์อัตโนมัติใน CI ได้สะดวก
 
 ## สรุปและการประเมินผล
 
